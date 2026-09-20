@@ -1,0 +1,27 @@
+{
+  "version": "7",
+  "dialect": "sqlite",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "6",
+      "when": 1789600174166,
+      "tag": "0000_known_shiva",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "6",
+      "when": 1789614689252,
+      "tag": "0001_lyrical_texas_twister",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1789669969178,
+      "tag": "0002_fancy_masked_marvel",
+      "breakpoints": true
+    }
+  ]
+}

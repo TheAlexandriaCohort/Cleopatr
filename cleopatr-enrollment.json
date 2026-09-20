@@ -1,0 +1,22 @@
+{
+  "clientId": "client_fc8f6b81-a7e4-49c0-ae86-323509806a9a",
+  "clientName": "curl-agent",
+  "token": "cleo_382b60e3-f474-416d-8e3c-2d582ea6fa0fb24d79cba3dc486bb5c39000f114d456",
+  "tenant": "local_seedy",
+  "publicKey": {
+    "kty": "OKP",
+    "key_ops": [
+      "verify"
+    ],
+    "alg": "EdDSA",
+    "ext": true,
+    "crv": "Ed25519",
+    "x": "vYjHBQlX-bSl9ab8lN5kQXgygktdDBRa-3HUO4RVwwI"
+  },
+  "environmentIds": [
+    "development"
+  ],
+  "expiresAt": "2026-10-17T15:09:42.720Z",
+  "environment": "development",
+  "server": "http://localhost:3000"
+}

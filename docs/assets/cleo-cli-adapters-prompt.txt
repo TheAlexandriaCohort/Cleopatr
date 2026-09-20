@@ -1,0 +1,152 @@
+Built-in image_gen tool. Source of technical coverage: docs/ENCLAVE_ACTIONS.md and docs/LINUX_HARNESS.md, CLI 0.6.
+
+INITIAL GENERATION
+
+Use case: infographic-diagram
+Asset type: finished high-resolution technical infographic for the Cleopatr project documentation.
+Create a NEW detailed infographic explaining the CURRENT Cleo CLI 0.6 architecture, with excellent legibility and generous spacing. Aim for a large 3:2 landscape canvas, approximately 3600 x 2400. This is a polished engineering explainer, not a generic cybersecurity poster.
+
+Reference images:
+1 = canonical Cleopatr gold feather + lowercase wordmark. Use faithfully in the header, unchanged proportions and lettering.
+2 = canonical gold "cleo" wordmark. Use faithfully beside the main title or agent enclave heading.
+3 = canonical gold feather icon. Optional small brand accent.
+4 = existing infographic: palette and visual style reference ONLY. Create a new, more detailed layout; do not reproduce its old content or pipe command.
+Preserve the source logos accurately, with transparent backgrounds, no redrawing or new typography for the wordmarks.
+
+Visual language: match the application's metallic gold gradients (#c39a3d → #f4d984 → #d4ac50), white and warm ivory panels, deep charcoal/navy body text. Emphasized text in dark gold for legibility. Fine gold borders, clean technical line icons, minimal soft shadows, strong typography. No bright blue text. Red and green ONLY for small explicit BLOCK / ALLOW decision indicators. Avoid decorative padlocks everywhere. Plenty of whitespace, clear labeled arrows. All text below must be rendered accurately, without invented text. Do not make tiny unreadable captions.
+
+HEADER:
+Canonical Cleopatr logo at upper left with "Rules Over All".
+Large title: "How Cleo works"
+Subtitle: "Global rules. Local enforcement."
+Small version label: "CLI 0.6 • Current implementation"
+
+TOP WORKFLOW (four panels, clear left-to-right arrows):
+1. "Central policy vault"
+   "Cleopatr web application"
+   "Published policies • Environment + ancestors"
+   "Per-policy Audit / Enforce modes"
+2. "Verified local policy cache"
+   "Ed25519-signed snapshots"
+   "Background refresh after 5 minutes"
+   "Last verified policies work offline"
+3. "Protected Cedar worker"
+   "Principal = enrolled client name"
+   "Compile launch grants + authorize live requests"
+4. "Activity & assessed payloads"
+   "Protected audit spool → Cleopatr Activity"
+   "Queued offline; retried in background"
+Use a return arrow from the main mediation area into the activity panel so it is clear events flow up to it, not that activity is required to launch.
+Keep policy cache and Cedar worker visibly connected to the protected Linux supervisor below.
+
+MAIN BODY — visually dominant large frame labeled "LINUX SECURITY HARNESS".
+Inside it, LEFT COLUMN: separate gold outlined inner box titled with the supplied cleo wordmark and "agent execution enclave".
+Illustrate a small terminal and agent with three child process icons; text "Agent + child processes".
+Terminal command verbatim: "cleo --env=Development -- node agent.js"
+Three small example operation labels: "Read a file", "Call an API", "Query a database".
+A labeled arrow "Attempted operations" feeds a common mediation bus on the RIGHT, into an orderly 4-column × 2-row grid of eight adapter/control cards. Visually distinguish the agent's restricted workload from the protected mediator cards. Adapter cards and policy worker are outside the agent's access. All cards connect to the common bus; avoid ambiguous decorative crossing arrows.
+Above cards place a compact decision strip: "Launch-time kernel grants + live Cedar decisions" and "ALLOW → proceed   BLOCK → stop   AUDIT → log & proceed*".
+Below agent box a small "Protected supervisor" block: "Rust • cgroup v2 attribution • session lifecycle".
+
+EIGHT CARDS: each has a simple functional icon, title, action labels, underlying components, and a compact outcome/destination icon. Component terms should be bold and visually emphasized. Text:
+1. "Process"
+   "process.execute • process.signal"
+   "process.privilege_attempt"
+   "Landlock executable grants"
+   "seccomp notifications + pidfd signals"
+   "Privilege elevation always prohibited"
+   Small destination: "Executables & descendants"
+
+2. "Filesystem"
+   "file.read / write / create / delete / rename"
+   "file.metadata"
+   "Landlock content permissions"
+   "seccomp + openat2 + pinned file descriptors"
+   "Static content grants; live metadata checks"
+   Small destination: "Workspace & files"
+
+3. "Network"
+   "network.connect • network.listen"
+   "Private network namespace"
+   "seccomp socket broker + FD injection"
+   "Protected outbound routes; local listeners"
+   Small destination: "Sockets & local services"
+
+4. "DNS"
+   "dns.query"
+   "Protected UDP / TCP resolver"
+   "DNS question parser + Cedar checks"
+   "Registered database hostname routing"
+   Small destination: "Name resolution"
+
+5. "HTTP / HTTPS"
+   "http.request + network.connect"
+   "HTTP/1.1 forward proxy"
+   "Method / host / path checks"
+   "Validated upstream TLS"
+   "Opaque CONNECT: Audit-only*"
+   Small destination: "APIs & websites"
+
+6. "MCP HTTP"
+   "mcp.tool.invoke • mcp.resource.read"
+   "mcp.prompt.get"
+   "HTTP proxy + JSON-RPC parser"
+   "Inspect tools/call, resources/read, prompts/get"
+   Small destination: "MCP servers"
+
+7. "PostgreSQL"
+   "database.connect / query / transaction"
+   "Wire protocol 3.0 • simple-query Q"
+   "Single text SQL + explicit transactions"
+   "Validated upstream TLS"
+   Small destination: "PostgreSQL database"
+
+8. "MySQL"
+   "database.connect / query / transaction"
+   "Protocol 10 • COM_QUERY"
+   "Single text SQL + explicit transactions"
+   "Validated upstream TLS"
+   Small destination: "MySQL database"
+
+FOUNDATION STRIP across bottom of main Linux frame:
+"Shared isolation foundation"
+Five compact cells:
+"cgroup v2: descendant attribution & cleanup"
+"Namespaces: mount / PID / network / IPC / UTS"
+"Read-only rootfs + protected policy storage"
+"Dropped UID/GID & capabilities + no_new_privs"
+"seccomp syscall allowlist + Landlock ABI 5+"
+Keep distinction clear: Landlock is kernel grant enforcement, not a per-operation Cedar proxy.
+
+BOTTOM ANNOTATIONS, concise but readable:
+"Modes: default follows Environment policies. --audit logs instead of policy-blocking; isolation stays active."
+"Deployment: native Linux supervisor, or managed Linux VM on macOS ARM64."
+"*HTTPS CONNECT is opaque and allowed only in entirely Audit sessions; encrypted paths and inner protocols are not inspected."
+"Coverage: static file/exec grants are not a full event stream. Databases exclude prepared statements and COPY."
+Small dashed separate box: "MCP stdio: cooperative adapter; not integrated into the protected supervisor."
+Small footer: "Experimental security harness • New policy snapshots require a session restart"
+
+Technical invariants: Do not depict Windows or native macOS kernel containment. Do not suggest Landlock intercepts signals or metadata; those use seccomp. No TLS interception claim. No universal SQL parsing or production-certified protection claim. Do not show audit mode granting root or bypassing enclave isolation. Do not invent additional adapters. Do not add an old 'cleo | agent' pipeline.
+
+
+CONTRAST EDIT
+
+Edit this Cleo technical infographic with a STRICTLY LIMITED contrast correction. Preserve ALL existing wording, the complete layout, all eight adapter cards, icons, arrows, panel positions, the canonical logos, and their proportions.
+
+Replace every cloudy, blurred, dark or multicolored page background with a perfectly flat warm white (#fffdf8). Especially remove the dark cloud behind "How Cleo works" and the blue-gray cloud behind the bottom notes. No atmospheric backgrounds, no vignette, no texture. Panel interiors should be clean white or extremely pale ivory; only small icon tiles and gold borders may keep subtle gold gradients.
+
+Set the main title, subtitle, panel titles, and ALL body text and footnotes to high-contrast charcoal (#18202c). The current blue body text must become dark charcoal. Selected emphasized phrases/headings may use deep readable gold (#795018). Preserve green ALLOW and red BLOCK accents. Keep the original gold logos and metallic gold accents unchanged. Bottom explanatory notes must be fully opaque, readable dark text on white, not faded.
+
+Do not add or remove information. Render every character crisply, at high resolution. Clean flat-background documentation design, no dramatic lighting. This edit fixes readability only.
+
+FINAL FOOTER EDIT
+
+Make one precise correction to this infographic. Preserve the entire header, logos, flowchart, Linux frame, all eight cards and foundation strip EXACTLY AS THEY ARE. Only replace the bottom footnotes below the gold Linux frame. The current footnotes contain garbled text and an inaccurate HTTPS sentence.
+
+Remove the existing five narrow footnote boxes and their icons. Replace that bottom area with a clean flat white full-width footer containing the following FOUR lines of crisp, easily readable dark charcoal text, verbatim. Extend the white canvas downward slightly if needed for legibility. Use a consistent regular sans-serif font with enough line spacing, not condensed tiny text. Left align with the main frame:
+"Modes: Default follows Environment policies. --audit disables policy blocking; enclave isolation remains."
+"Platform: Native Linux supervisor or managed Linux VM on macOS ARM64."
+"Limits: CONNECT only in all-Audit sessions; encrypted content is not inspected. No prepared SQL or COPY. MCP stdio is cooperative."
+"Static file/exec grants are not a full event stream. Experimental harness. New policy snapshots require a session restart."
+
+Keep the original small final footer only if it doesn't duplicate text; preferably remove it because it is now included above. The four replacement lines are the sole changes; do not change any other wording, logos, adapter cards, connectors, dimensions of the main diagram, or colors. In particular never state that Audit captures encrypted paths.
