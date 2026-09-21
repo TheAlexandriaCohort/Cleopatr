@@ -141,8 +141,15 @@ export async function loadBundle(dir = dataDir()) {
     );
   return { config, cache, bundle };
 }
-function verifyScope(bundle: Bundle, config: Config) {
-  if (bundle.client && bundle.client.id !== config.clientId)
+function verifyScope(
+  bundle: Bundle,
+  config: Config,
+): asserts bundle is Bundle & { client: { id: string; name: string } } {
+  if (!bundle.client)
+    throw new Error(
+      'Policy bundle has no signed client identity. Run cleo sync or download a bundle for this client from Deploy, then import it.',
+    );
+  if (bundle.client.id !== config.clientId)
     throw new Error('Signed client identity does not match this enrollment');
   if (JSON.stringify(bundle.schema) !== JSON.stringify(SCHEMA))
     throw new Error('Bundle schema does not match this client');

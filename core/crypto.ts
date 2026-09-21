@@ -108,6 +108,7 @@ export async function verifyBundle(
         '0.4.4',
         '0.5.0',
         '0.5.1',
+        '0.6.0',
         VERSION,
       ].includes(bundle.minimumClientVersion))
   )

@@ -14,6 +14,7 @@ import {
   activate,
   atomicJson,
   readCache,
+  readConfig,
   sync,
   needsRefresh,
   requestRefresh,
@@ -44,6 +45,7 @@ async function fixture() {
     createdAt: new Date().toISOString(),
     environmentIds: ['development'],
     minimumClientVersion: '0.3.0',
+    client: { id: 'test-client', name: 'Test client' },
   };
   const signed = await signBundle(bundle, keys.privateKey);
   return { dir, keys, bundle, signed };
@@ -259,7 +261,7 @@ void test('concurrent activations never regress the high-water sequence', async 
   await Promise.allSettled([activate(three, f.dir), activate(two, f.dir)]);
   assert.equal((await loadBundle(f.dir)).bundle.sequence, 3);
 });
-void test('new clients can still use verified legacy caches while offline', async () => {
+void test('older bundle formats remain usable offline when they contain a signed client identity', async () => {
   const f = await fixture();
   const legacy = {
     ...f.bundle,
@@ -343,6 +345,12 @@ void test('authorization pins the enrolled principal and cannot accept a forged 
     },
   ];
   await activate(await signBundle(f.bundle, f.keys.privateKey), f.dir);
+  // A local config edit cannot replace the signed name.
+  const config = await readConfig(f.dir);
+  await atomicJson(join(f.dir, 'config'), {
+    ...config,
+    clientName: 'Forged agent',
+  });
   const result = await authorize(
     { ...action, sessionId: 'distinct-session', principal: 'Forged agent' },
     { dir: f.dir, mode: 'ENFORCE', refresh: false },
@@ -365,7 +373,7 @@ void test('authorization pins the enrolled principal and cannot accept a forged 
     /identity/,
   );
 });
-void test('legacy enrollment gains a signed client name on sync, then works offline', async () => {
+void test('unsigned client identities fail closed on import and cached authorization, then recover on sync', async () => {
   const f = await fixture();
   await atomicJson(join(f.dir, 'config.json'), {
     server: 'https://offline.example',
@@ -374,17 +382,40 @@ void test('legacy enrollment gains a signed client name on sync, then works offl
     publicKey: f.keys.publicKey,
     environmentIds: ['development'],
     clientId: 'test-client',
+    clientName: 'Forged agent',
   });
-  await activate(
-    await signBundle(
-      { ...f.bundle, schemaVersion: '2.0', minimumClientVersion: '0.2.0' },
-      f.keys.privateKey,
-    ),
-    f.dir,
+  const legacy = await signBundle(
+    {
+      ...f.bundle,
+      client: undefined,
+      schemaVersion: '2.0',
+      minimumClientVersion: '0.2.0',
+    },
+    f.keys.privateKey,
   );
+  await assert.rejects(activate(legacy, f.dir), /no signed client identity/);
+  await assert.rejects(
+    activate(
+      await signBundle({ ...f.bundle, client: undefined }, f.keys.privateKey),
+      f.dir,
+    ),
+    /no signed client identity/,
+  );
+  // Model an already-cached unbound bundle from an older CLI version.
+  await atomicJson(join(f.dir, 'bundle.json'), {
+    signed: legacy,
+    checkedAt: Date.now(),
+    activatedAt: Date.now(),
+    highWater: 1,
+    etag: `"${legacy.digest}"`,
+  });
   await assert.rejects(
     () => authorize(action, { dir: f.dir, refresh: false }),
-    /Client name is missing/,
+    /no signed client identity/,
+  );
+  await assert.rejects(
+    () => authorize(action, { dir: f.dir, refresh: false, mode: 'AUDIT' }),
+    /no signed client identity/,
   );
   const signed = await signBundle(
     {

@@ -12,7 +12,7 @@ import {
 import type { ApiInput } from '../core/api-types.ts';
 import { verifyBundle } from '../core/crypto.ts';
 function setup() {
-  return new ControlPlane(new SQLiteDatabase(':memory:', 'drizzle'), cedar);
+  return new ControlPlane(new SQLiteDatabase(':memory:', 'migrations'), cedar);
 }
 async function mutate(p: ControlPlane, input: ApiInput) {
   return p.mutation('alice', 'Alice', {
@@ -22,7 +22,7 @@ async function mutate(p: ControlPlane, input: ApiInput) {
 }
 async function bundle(p: ControlPlane, env = 'development') {
   return verifyBundle(
-    await p.bundle('alice', [env]),
+    await p.bundle('alice', [env], { id: 'test-client', name: 'Test client' }),
     (await p.state('alice')).publicKey,
     'alice',
   );
@@ -37,7 +37,10 @@ void test('direct publishing isolates drafts, signs policies, and rollback creat
     operation: 'publish',
     item: { id: policy.id },
   });
-  const initial = await p.bundle('alice', ['development']);
+  const initial = await p.bundle('alice', ['development'], {
+    id: 'test-client',
+    name: 'Test client',
+  });
   const live = await bundle(p);
   assert.deepEqual(live.environmentIds, ['development']);
   assert.equal(live.policies.length, 1);

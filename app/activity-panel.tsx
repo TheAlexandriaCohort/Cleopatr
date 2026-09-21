@@ -350,6 +350,7 @@ function ActivityResults({
   const [retry, setRetry] = useState(0);
   const generation = useRef(0);
   const viewingHistory = useRef(false);
+  const [historyPaused, setHistoryPaused] = useState(false);
   useEffect(() => {
     const current = ++generation.current;
     let pending = false;
@@ -393,6 +394,7 @@ function ActivityResults({
     if (!data?.nextCursor || moreBusy) return;
     const current = generation.current;
     viewingHistory.current = true;
+    setHistoryPaused(true);
     setMoreBusy(true);
     setError('');
     try {
@@ -418,6 +420,7 @@ function ActivityResults({
             variant="outline"
             onClick={() => {
               viewingHistory.current = false;
+              setHistoryPaused(false);
               setRetry((n) => n + 1);
             }}
           >
@@ -490,6 +493,7 @@ function ActivityResults({
             disabled={moreBusy}
             onClick={() => {
               viewingHistory.current = false;
+              setHistoryPaused(false);
               setRetry((n) => n + 1);
             }}
           >
@@ -505,7 +509,7 @@ function ActivityResults({
             </Button>
           )}
           <span className="help">
-            {viewingHistory.current
+            {historyPaused
               ? 'Auto-refresh paused while viewing older events. '
               : 'Updates every 15 seconds. '}
             Times shown in{' '}

@@ -3,16 +3,15 @@ import { spawn } from 'node:child_process';
 import { mkdtemp, writeFile, readFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { tmpdir } from 'node:os';
-const origin = 'http://localhost:3000';
-const login = await fetch(origin + '/signin-with-chatgpt?return_to=%2F', {
-  redirect: 'manual',
-});
-const cookie = login.headers.get('set-cookie').split(';')[0];
+const origin = process.env.CLEO_TEST_URL ?? 'http://localhost:3000';
+const clientName = 'Integration test client ' + crypto.randomUUID();
 async function api(path, body) {
   const r = await fetch(origin + '/api/v1/' + path, {
     method: body ? 'POST' : 'GET',
     headers: {
-      cookie,
+      ...(process.env.CLEO_ADMIN_TOKEN
+        ? { 'x-cleo-admin-token': process.env.CLEO_ADMIN_TOKEN }
+        : {}),
       origin,
       ...(body ? { 'content-type': 'application/json' } : {}),
     },
@@ -61,12 +60,11 @@ try {
     item: {
       name: 'Integration file access',
       environmentIds: [environment.id],
-      cedar:
-        'permit(principal == Cleopatr::AgentSession::"Integration test client", action == Cleopatr::Action::"file.read", resource);',
+      cedar: `permit(principal == Cleopatr::AgentSession::${JSON.stringify(clientName)}, action == Cleopatr::Action::"file.read", resource);`,
     },
   });
   enrollment = await api('enroll', {
-    name: 'Integration test client',
+    name: clientName,
     environmentIds: [environment.id],
   });
   await writeFile(
@@ -186,7 +184,7 @@ try {
     activity.some(
       (e) =>
         e.policyId === policy.id &&
-        e.clientName === 'Integration test client' &&
+        e.clientName === clientName &&
         e.decision === 'DENY',
     ),
   );
@@ -195,7 +193,7 @@ try {
     environment: environment.id,
     policy: policy.id,
     resource: 'File',
-    principal: 'Integration test client',
+    principal: clientName,
   });
   const filtered = await api('activity?' + filters.toString());
   assert.ok(filtered.total >= 3);
@@ -204,11 +202,11 @@ try {
       (e) =>
         e.environmentId === environment.id &&
         e.policyId === policy.id &&
-        e.clientName === 'Integration test client' &&
+        e.clientName === clientName &&
         e.resourceType === 'File',
     ),
   );
-  assert.ok(filtered.principals.includes('Integration test client'));
+  assert.ok(filtered.principals.includes(clientName));
   filters.set('resource', 'Database');
   assert.equal((await api('activity?' + filters.toString())).total, 0);
   const platformFilters = new URLSearchParams({

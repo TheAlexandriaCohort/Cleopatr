@@ -48,6 +48,7 @@ async function fixture(
     createdAt: new Date().toISOString(),
     environmentIds: ['development'],
     minimumClientVersion: '0.3.0',
+    client: { id: 'client', name: 'Test client' },
   };
   await activate(await signBundle(b, keys.privateKey), dir);
   return { dir, keys, b };

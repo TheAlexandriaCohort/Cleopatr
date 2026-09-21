@@ -11,6 +11,7 @@ import type { evaluate } from './engine';
 import type { Assessment } from './assessment';
 export type DraftItem = Partial<Policy & Environment & Resource>;
 export type ApiInput = {
+  configuration?: unknown;
   revision?: number;
   kind?: string;
   operation?: string;

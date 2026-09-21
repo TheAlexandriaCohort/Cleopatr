@@ -45,8 +45,7 @@ try {
           config.environment ??
           config.environmentIds[0],
       );
-      const principal = bundle.client?.name ?? config.clientName;
-      if (!principal) throw new Error('Signed client identity is required');
+      const principal = bundle.client.name;
       const sessionId = 'agt_' + crypto.randomUUID();
       if (message.request.audit && message.request.enforce)
         throw new Error('Conflicting execution modes');

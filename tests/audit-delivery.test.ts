@@ -43,7 +43,7 @@ const event = (id: string): EventRecord => ({
 async function fixture(t: import('node:test').TestContext) {
   const dir = await mkdtemp(join(tmpdir(), 'cleo-delivery-'));
   const control = new ControlPlane(
-    new SQLiteDatabase(':memory:', 'drizzle'),
+    new SQLiteDatabase(':memory:', 'migrations'),
     cedar,
   );
   const enrollment = await control.enroll('alice', 'Alice', {

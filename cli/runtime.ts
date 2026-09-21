@@ -55,7 +55,7 @@ async function authorizeVerified(
   options: AuthorizationOptions,
 ) {
   const dir = options.dir ?? dataDir();
-  const { bundle, cache, config } = loaded;
+  const { bundle, cache } = loaded;
   if (
     options.expectedSequence !== undefined &&
     bundle.sequence !== options.expectedSequence
@@ -67,11 +67,7 @@ async function authorizeVerified(
     throw new Error('This client is not assigned to the requested environment');
   if (options.refresh !== false)
     await requestRefresh(dir, options.entry).catch(() => {});
-  const principal = bundle.client?.name ?? config.clientName;
-  if (!principal)
-    throw new Error(
-      'Client name is missing from this older enrollment. Run cleo sync to receive your signed client identity, or use a new enrollment file for offline access.',
-    );
+  const principal = bundle.client.name;
   // Adapter request JSON cannot choose another client's principal.
   request = { ...request, principal };
   let result;

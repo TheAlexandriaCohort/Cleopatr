@@ -1,15 +1,12 @@
 import assert from 'node:assert/strict';
-const origin = 'http://localhost:3000';
-const sign = await fetch(origin + '/signin-with-chatgpt?return_to=%2F', {
-  redirect: 'manual',
-});
-assert.equal(sign.status, 302);
-const cookie = sign.headers.get('set-cookie').split(';')[0];
+const origin = process.env.CLEO_TEST_URL ?? 'http://localhost:3000';
 async function api(path, body) {
   const r = await fetch(origin + '/api/v1/' + path, {
     method: body ? 'POST' : 'GET',
     headers: {
-      cookie,
+      ...(process.env.CLEO_ADMIN_TOKEN
+        ? { 'x-cleo-admin-token': process.env.CLEO_ADMIN_TOKEN }
+        : {}),
       origin,
       ...(body ? { 'content-type': 'application/json' } : {}),
     },

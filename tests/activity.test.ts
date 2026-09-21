@@ -7,7 +7,10 @@ import { queryActivity } from '../control-plane/activity.ts';
 import type { ApiInput } from '../core/api-types.ts';
 const start = Date.parse('2026-09-10T12:00:00Z');
 async function setup() {
-  const p = new ControlPlane(new SQLiteDatabase(':memory:', 'drizzle'), cedar);
+  const p = new ControlPlane(
+    new SQLiteDatabase(':memory:', 'migrations'),
+    cedar,
+  );
   const a = await p.enroll('alice', 'Alice', {
     name: 'Agent A',
     environmentIds: ['organization'],
@@ -150,11 +153,7 @@ void test('date ranges honor time zones and inclusive boundaries; invalid ranges
   );
 });
 void test('principals use recorded server names, include historical clients, and remain tenant isolated', async () => {
-  const { p, a } = await setup();
-  const same = await p.enroll('alice', 'Alice', {
-    name: 'Agent A',
-    environmentIds: ['development'],
-  });
+  const { p, a, b } = await setup();
   const other = await p.enroll('bob', 'Bob', {
     name: 'Private client',
     environmentIds: ['development'],
@@ -164,23 +163,23 @@ void test('principals use recorded server names, include historical clients, and
       event('same-id', { clientName: 'spoofed', resourceType: 'Database' }),
     ],
   });
-  await p.ingest('alice', same.clientId, { events: [event('same-id')] });
+  await p.ingest('alice', b.clientId, { events: [event('same-id')] });
   await p.ingest('bob', other.clientId, { events: [event('private')] });
   await p.db
     .prepare('UPDATE clients SET name = ?, revoked = 1 WHERE id = ?')
     .bind('Renamed client', a.clientId)
     .run();
-  const rows = await query(p, { principal: 'Agent A' });
+  const rows = await query(p, { principal: ['Agent A', 'Agent B'] });
   assert.equal(rows.total, 2);
   assert.notEqual(rows.events[0].recordId, rows.events[1].recordId);
-  assert.deepEqual(rows.principals, ['Agent A']);
+  assert.deepEqual(rows.principals, ['Agent A', 'Agent B']);
   assert.ok(rows.events.every((e) => e.resourceType === 'File'));
   assert.equal((await query(p, {}, 'bob')).total, 1);
   assert.equal((await query(p, { principal: "' OR 1=1 --" })).total, 0);
   assert.equal((await query(p, { environment: "' OR 1=1 --" })).total, 0);
   assert.equal(
     (await query(p, { type: 'platform', principal: 'Agent A' })).total,
-    2,
+    1,
   );
 });
 void test('platform policy history remains filterable after reassignment and deletion', async () => {

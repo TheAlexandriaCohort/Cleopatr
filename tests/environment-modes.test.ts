@@ -18,7 +18,7 @@ const ids = [
   'pol_default_file_delete',
 ];
 async function setup(t: import('node:test').TestContext) {
-  const db = new SQLiteDatabase(':memory:', 'drizzle');
+  const db = new SQLiteDatabase(':memory:', 'migrations');
   t.after(() => db.close());
   const p = new ControlPlane(db, cedar);
   const mutate = async (input: ApiInput) =>
@@ -63,7 +63,7 @@ async function setup(t: import('node:test').TestContext) {
     );
     // The signed policies consumed by existing CLI 0.4.2 have the same modes.
     const bundle = await verifyBundle(
-      await p.bundle('alice', [id]),
+      await p.bundle('alice', [id], { id: 'test-client', name: 'Test client' }),
       state.publicKey,
       'alice',
     );

@@ -4,7 +4,7 @@ The native runtime and managed macOS VM provide an **experimental kernel boundar
 
 ## Managed VM on Apple Silicon
 
-Install CLI 0.6 outside your project, start Docker Desktop, then use `cleo --env=Development -- tests/curl-agent.js`, or the equivalent pipe-style command after `eval "$(cleo init zsh)"`. First use builds a content-addressed local image containing QEMU, a Landlock-enabled Debian kernel, the supervisor, and a minimal Linux Node/curl runtime. Each launch boots a fresh VM without a privileged Docker container or host Docker socket in the workload.
+Install `cleo` outside of your project folder, start Docker Desktop, then use `cleo -- path/to/agent`, or the equivalent pipe-style command after `eval "$(cleo init zsh)"`. First use builds a content-addressed local image containing QEMU, a Landlock-enabled Debian kernel, the supervisor, and a minimal Linux Node/curl runtime. Each launch boots a fresh VM without a privileged Docker container or host Docker socket in the workload.
 
 Only the selected project is mounted into the workload, at `/workspace`. The private mount namespace masks `.cleo`, the standard `cleopatr-enrollment.json` file, and the selected configuration directory if it is within the workspace. The installed CLI/VM assets must be outside the shared workspace. Enrollment tokens stay on the host; verified signed bundles enter protected guest storage, and guest policy events return to the host spool for authenticated upload. Do not place extra copies of enrollment secrets or host-executed trusted code in a writable agent workspace.
 
@@ -136,6 +136,5 @@ Policy refresh remains a five-minute, non-blocking background operation. A faile
 - Extend DNS provenance and TCP upstream fallback, network compatibility, full terminal/job control and multi-workspace provisioning.
 - Add adversarial concurrency/path replacement tests, protocol fuzzing, denial-of-service and supervisor-crash tests, x86-64 validation, performance measurements, packaging and independent privilege-boundary review.
 
-These limits must remain visible in product claims. Passing the current kernel tests does not establish the full implementation document's definition of V1 done.
 
 Design references: [Landlock userspace API](https://docs.kernel.org/userspace-api/landlock.html), [seccomp and userspace notifications](https://docs.kernel.org/userspace-api/seccomp_filter.html), and [cgroup v2](https://docs.kernel.org/admin-guide/cgroup-v2.html).

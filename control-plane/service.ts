@@ -33,6 +33,9 @@ import {
 import { normalizeEvent, platformScope, queryActivity } from './activity.ts';
 import { simulateControl } from './simulation.ts';
 import { validateAssessment } from '../core/assessment.ts';
+import { exportConfiguration, prepareImport } from './configuration.ts';
+import { CONFIGURATION_MAX_BYTES } from '../core/configuration.ts';
+import { requestOrigin } from './http.ts';
 export { ApiError } from './lifecycle.ts';
 type WorkspaceRow = {
   id: string;
@@ -90,7 +93,7 @@ export class ControlPlane {
         : await makeKeys();
       await this.db
         .prepare(
-          'INSERT OR IGNORE INTO workspaces (id,snapshot,revision,sequence,mutation,public_key,private_key,model_version,updated_at) VALUES (?,?,1,1,?,?,?,5,?)',
+          'INSERT OR IGNORE INTO workspaces (id,snapshot,revision,sequence,mutation,public_key,private_key,model_version,updated_at) VALUES (?,?,1,1,?,?,?,6,?)',
         )
         .bind(
           tenant,
@@ -180,7 +183,7 @@ export class ControlPlane {
       const statements = [
         this.db
           .prepare(
-            'UPDATE workspaces SET snapshot = ?, model_version = 5, sequence = sequence + 1, revision = revision + 1, mutation = ?, updated_at = ? WHERE id = ? AND model_version = 1 AND revision = ?',
+            'UPDATE workspaces SET snapshot = ?, model_version = 6, sequence = sequence + 1, revision = revision + 1, mutation = ?, updated_at = ? WHERE id = ? AND model_version = 1 AND revision = ?',
           )
           .bind(JSON.stringify(snapshot), marker, now(), tenant, row.revision),
       ];
@@ -195,8 +198,10 @@ export class ControlPlane {
       return this.workspace(tenant);
     }
 
-    if (row.model_version < 5) {
+    if (row.model_version < 6) {
       // Upgrade once, preserving edits and assignments. Advance signed snapshot provenance.
+      // Version 6 requires client-bound bundles and CLI 0.6.1. Advancing the
+      // sequence lets old caches upgrade without weakening rollback protection.
       const snapshot = JSON.parse(row.snapshot) as Snapshot;
       const time = now();
       if (row.model_version < 4) addDefaultPolicies(snapshot, time);
@@ -204,7 +209,7 @@ export class ControlPlane {
         delete environment.excludedPolicyIds;
       await this.db
         .prepare(
-          'UPDATE workspaces SET snapshot = ?, model_version = 5, sequence = sequence + 1, revision = revision + 1, mutation = ?, updated_at = ? WHERE id = ? AND model_version = ? AND revision = ?',
+          'UPDATE workspaces SET snapshot = ?, model_version = 6, sequence = sequence + 1, revision = revision + 1, mutation = ?, updated_at = ? WHERE id = ? AND model_version = ? AND revision = ?',
         )
         .bind(
           JSON.stringify(snapshot),
@@ -369,11 +374,102 @@ export class ControlPlane {
     );
     return { ok: true, revision: workspace.revision + 1, id: changed.objectId };
   }
+  async importConfiguration(
+    tenant: string,
+    actor: string,
+    input: ApiInput,
+    preview = false,
+  ) {
+    const workspace = await this.workspace(tenant);
+    assert(
+      input.revision === workspace.revision,
+      'This workspace changed. Review the import again.',
+      409,
+    );
+    const prepared = prepareImport(
+      workspace.snapshot,
+      input.configuration,
+      this.cedar,
+    );
+    const result = {
+      revision: workspace.revision,
+      changes: prepared.changes,
+      publishedPolicies: prepared.publishedPolicies,
+    };
+    if (preview) return result;
+    const marker = uid('import');
+    const event = {
+      id: uid('evt'),
+      time: prepared.time,
+      kind: 'administration',
+      actor,
+      operation: 'import',
+      objectType: 'configuration',
+      name: 'Configuration import',
+      changes: prepared.changes,
+      environmentIds: prepared.snapshot.environments.map((e) => e.id),
+      policyIds: prepared.snapshot.policies.map((p) => p.id),
+      resourceTypes: [
+        ...new Set(prepared.snapshot.resources.map((r) => r.type)),
+      ],
+    };
+    const statements = [
+      this.db
+        .prepare(
+          'UPDATE workspaces SET snapshot = ?, revision = revision + 1, sequence = sequence + 1, mutation = ?, updated_at = ? WHERE id = ? AND revision = ?',
+        )
+        .bind(
+          JSON.stringify(prepared.snapshot),
+          marker,
+          prepared.time,
+          tenant,
+          workspace.revision,
+        ),
+      this.db
+        .prepare(
+          'INSERT INTO events (id,tenant,time,kind,body) SELECT ?,?,?,?,? WHERE EXISTS (SELECT 1 FROM workspaces WHERE id = ? AND mutation = ?)',
+        )
+        .bind(
+          event.id,
+          tenant,
+          event.time,
+          event.kind,
+          JSON.stringify(event),
+          tenant,
+          marker,
+        ),
+    ];
+    for (const history of prepared.histories) {
+      statements.push(this.historyInsert(tenant, marker, history));
+      statements.push(
+        this.db
+          .prepare(
+            'DELETE FROM policy_history WHERE tenant = ? AND policy_id = ? AND id NOT IN (SELECT id FROM policy_history WHERE tenant = ? AND policy_id = ? ORDER BY version DESC LIMIT 50) AND EXISTS (SELECT 1 FROM workspaces WHERE id = ? AND mutation = ?)',
+          )
+          .bind(
+            tenant,
+            history.policyId,
+            tenant,
+            history.policyId,
+            tenant,
+            marker,
+          ),
+      );
+    }
+    const committed = await this.db.batch(statements);
+    assert(
+      committed[0].meta.changes === 1,
+      'This workspace changed. Review the import again.',
+      409,
+    );
+    return { ...result, revision: workspace.revision + 1 };
+  }
   async bundle(
     tenant: string,
     environmentIds: string[],
-    client?: { id: string; name: string },
+    client: { id: string; name: string },
   ) {
+    assert(client?.id && client.name, 'A client identity is required');
     const workspace = await this.workspace(tenant);
     for (const id of environmentIds)
       ancestors(workspace.snapshot.environments, id);
@@ -400,12 +496,28 @@ export class ControlPlane {
       createdAt: workspace.updated_at,
       environmentIds: allowed,
       minimumClientVersion: BUNDLE_MINIMUM_CLIENT_VERSION,
-      ...(client ? { client } : {}),
+      client,
     };
     return signBundle(
       bundle,
       this.signingKey ?? JSON.parse(workspace.private_key),
     );
+  }
+  async bundleForClient(tenant: string, clientId: string) {
+    const client = await this.db
+      .prepare('SELECT * FROM clients WHERE tenant = ? AND id = ?')
+      .bind(tenant, clientId)
+      .first<ClientRow>();
+    assert(client, 'Client not found in this workspace', 404);
+    assert(
+      !client.revoked && (!client.expires_at || client.expires_at > now()),
+      'Select an active client; this client is expired or revoked',
+      403,
+    );
+    return this.bundle(tenant, JSON.parse(client.environment_ids), {
+      id: client.id,
+      name: client.name,
+    });
   }
   async environmentActivity(tenant: string, environmentId: string) {
     ancestors(
@@ -422,6 +534,14 @@ export class ControlPlane {
   }
   async enroll(tenant: string, actor: string, input: ApiInput) {
     const w = await this.workspace(tenant);
+    const name = bounded(input.name);
+    const nameConflict =
+      'Client name already exists in this workspace. Choose a different name.';
+    const existing = await this.db
+      .prepare('SELECT id FROM clients WHERE tenant = ? AND name = ? LIMIT 1')
+      .bind(tenant, name)
+      .first();
+    assert(!existing, nameConflict, 409);
     assert(
       Array.isArray(input.environmentIds) && input.environmentIds.length > 0,
       'Choose at least one environment',
@@ -441,49 +561,55 @@ export class ControlPlane {
       );
       expiresAt = new Date(input.expiresAt).toISOString();
     }
-    const name = bounded(input.name);
-    await this.db.batch([
-      this.db
-        .prepare(
-          'INSERT INTO clients (id,tenant,token_hash,name,environment_ids,created_at,expires_at,revoked) VALUES (?,?,?,?,?,?,?,0)',
-        )
-        .bind(
-          id,
-          tenant,
-          await digest(token),
-          name,
-          JSON.stringify(input.environmentIds),
-          created,
-          expiresAt,
-        ),
-      this.db
-        .prepare(
-          'INSERT INTO events (id,tenant,time,kind,body) VALUES (?,?,?,?,?)',
-        )
-        .bind(
-          uid('evt'),
-          tenant,
-          created,
-          'administration',
-          JSON.stringify({
-            id: uid('evt'),
-            time: created,
-            kind: 'administration',
-            actor,
-            operation: 'enroll',
+    try {
+      await this.db.batch([
+        this.db
+          .prepare(
+            'INSERT INTO clients (id,tenant,token_hash,name,environment_ids,created_at,expires_at,revoked) VALUES (?,?,?,?,?,?,?,0)',
+          )
+          .bind(
+            id,
+            tenant,
+            await digest(token),
             name,
-            clientId: id,
-            clientName: name,
-            environmentIds: [
-              ...new Set(
-                input.environmentIds.flatMap((env) =>
-                  descendants(w.snapshot.environments, env),
+            JSON.stringify(input.environmentIds),
+            created,
+            expiresAt,
+          ),
+        this.db
+          .prepare(
+            'INSERT INTO events (id,tenant,time,kind,body) VALUES (?,?,?,?,?)',
+          )
+          .bind(
+            uid('evt'),
+            tenant,
+            created,
+            'administration',
+            JSON.stringify({
+              id: uid('evt'),
+              time: created,
+              kind: 'administration',
+              actor,
+              operation: 'enroll',
+              name,
+              clientId: id,
+              clientName: name,
+              environmentIds: [
+                ...new Set(
+                  input.environmentIds.flatMap((env) =>
+                    descendants(w.snapshot.environments, env),
+                  ),
                 ),
-              ),
-            ],
-          }),
-        ),
-    ]);
+              ],
+            }),
+          ),
+      ]);
+    } catch (error) {
+      // The database guard is authoritative if another request wins the race.
+      if (error instanceof Error && error.message === nameConflict)
+        throw new ApiError(nameConflict, 409);
+      throw error;
+    }
     return {
       clientId: id,
       clientName: name,
@@ -668,22 +794,44 @@ export class ControlPlane {
         );
       if (request.method !== 'GET' && !client) {
         const origin = request.headers.get('origin');
-        assert(origin === url.origin, 'Cross-origin mutation rejected', 403);
+        assert(
+          origin && origin === requestOrigin(request),
+          'Cross-origin mutation rejected',
+          403,
+        );
       }
       if (request.method === 'GET') {
+        if (route === 'configuration') {
+          const configuration = exportConfiguration(
+            (await this.workspace(tenant)).snapshot,
+          );
+          const json = JSON.stringify(configuration, null, 2);
+          assert(
+            new TextEncoder().encode(json).length < CONFIGURATION_MAX_BYTES,
+            'Configuration exceeds the 32 MiB transfer limit',
+            413,
+          );
+          return new Response(json, {
+            headers: {
+              'content-type': 'application/json',
+              'content-disposition':
+                'attachment; filename="cleopatr-configuration.json"',
+              'cache-control': 'no-store',
+            },
+          });
+        }
         if (route === 'state') return Response.json(await this.state(tenant));
         if (route === 'activity')
           return Response.json(
             await queryActivity(this.db, tenant, url.searchParams),
           );
         if (route === 'bundles') {
-          const ids =
-            client?.environmentIds ?? url.searchParams.getAll('environment');
-          const bundle = await this.bundle(
-            tenant,
-            ids,
-            client ? { id: client.id, name: client.name } : undefined,
+          const clientId = client?.id ?? url.searchParams.get('clientId');
+          assert(
+            clientId,
+            'Select a client before downloading a policy bundle',
           );
+          const bundle = await this.bundleForClient(tenant, bounded(clientId));
           if (request.headers.get('if-none-match') === `"${bundle.digest}"`)
             return new Response(null, {
               status: 304,
@@ -712,9 +860,42 @@ export class ControlPlane {
           );
       }
       assert(request.method === 'POST', 'Route not found', 404);
-      const body = await request.text();
-      assert(body.length < 200000, 'Request is too large', 413);
+      const limit = ['configuration/import', 'configuration/preview'].includes(
+        route,
+      )
+        ? CONFIGURATION_MAX_BYTES
+        : 200000;
+      const reader = request.body?.getReader();
+      const chunks: Uint8Array[] = [];
+      let size = 0;
+      if (reader)
+        for (;;) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          size += value.byteLength;
+          if (size >= limit) {
+            await reader.cancel();
+            throw new ApiError('Request is too large', 413);
+          }
+          chunks.push(value);
+        }
+      const bytes = new Uint8Array(size);
+      let offset = 0;
+      for (const chunk of chunks) {
+        bytes.set(chunk, offset);
+        offset += chunk.byteLength;
+      }
+      const body = new TextDecoder().decode(bytes);
       const input: ApiInput = JSON.parse(body || '{}');
+      if (route === 'configuration/preview' || route === 'configuration/import')
+        return Response.json(
+          await this.importConfiguration(
+            tenant,
+            actor,
+            input,
+            route.endsWith('/preview'),
+          ),
+        );
       if (route === 'mutate')
         return Response.json(await this.mutation(tenant, actor, input));
       if (route === 'validate')

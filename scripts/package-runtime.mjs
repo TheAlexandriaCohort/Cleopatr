@@ -15,7 +15,7 @@ const architecture = new Map([
   [62, 'x64'],
 ]).get(binary.readUInt16LE(18));
 if (!architecture) throw new Error('Unsupported supervisor architecture');
-const file = `cleopatr-linux-${architecture}-0.6.0-preview.tgz`;
+const file = `cleopatr-linux-${architecture}-0.6.1-preview.tgz`;
 await mkdir('public/downloads', { recursive: true });
 execFileSync(
   'tar',

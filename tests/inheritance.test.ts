@@ -114,7 +114,7 @@ const request: ActionRequest = {
   context: {},
 };
 async function setup(t: import('node:test').TestContext) {
-  const db = new SQLiteDatabase(':memory:', 'drizzle');
+  const db = new SQLiteDatabase(':memory:', 'migrations');
   t.after(() => db.close());
   const p = new ControlPlane(db, cedar);
   await p.state('alice');
@@ -194,9 +194,12 @@ void test('API rejects inherited deselection and per-policy Audit without mutati
     item: { id: 'child' },
     mode: 'AUDIT',
   });
-  const signed = await p.bundle('alice', ['leaf']);
+  const signed = await p.bundle('alice', ['leaf'], {
+    id: 'test-client',
+    name: 'Test client',
+  });
   const bundle = await verifyBundle(signed, before.publicKey, 'alice');
-  assert.equal(bundle.minimumClientVersion, '0.4.2');
+  assert.equal(bundle.minimumClientVersion, '0.6.1');
   assert.equal(evaluateWithModes(cedar, bundle, request).allowed, false);
   const simulation = await p.handle(
     new Request('https://cleo.example/api/v1/simulate', {

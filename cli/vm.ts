@@ -96,9 +96,7 @@ export async function launchVm(options: {
     bundle,
     options.environment ?? config.environment ?? config.environmentIds[0],
   );
-  const principal = bundle.client?.name ?? config.clientName;
-  if (!principal)
-    throw new Error('Signed client identity is required; run cleo sync');
+  const principal = bundle.client.name;
   requireExecutableGrant(
     compileProfile(
       bundle,

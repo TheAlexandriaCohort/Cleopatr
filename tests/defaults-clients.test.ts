@@ -19,7 +19,7 @@ import {
 } from '../core/model.ts';
 
 const setup = () =>
-  new ControlPlane(new SQLiteDatabase(':memory:', 'drizzle'), cedar);
+  new ControlPlane(new SQLiteDatabase(':memory:', 'migrations'), cedar);
 
 void test('every action has a published, unassigned wildcard permit; assigning them permits all schema actions', async () => {
   const defaults = createDefaultPolicies();
@@ -45,7 +45,10 @@ void test('every action has a published, unassigned wildcard permit; assigning t
       ),
     );
   const empty = await verifyBundle(
-    await p.bundle('alice', ['development']),
+    await p.bundle('alice', ['development'], {
+      id: 'test-client',
+      name: 'Test client',
+    }),
     state.publicKey,
     'alice',
   );
@@ -60,7 +63,10 @@ void test('every action has a published, unassigned wildcard permit; assigning t
     ),
   });
   const bundle = await verifyBundle(
-    await p.bundle('alice', ['development']),
+    await p.bundle('alice', ['development'], {
+      id: 'test-client',
+      name: 'Test client',
+    }),
     state.publicKey,
     'alice',
   );
@@ -132,7 +138,7 @@ void test('all enrolled clients survive database reopen without the previous 100
   const dir = await mkdtemp(join(tmpdir(), 'cleo-clients-'));
   t.after(() => rm(dir, { recursive: true, force: true }));
   const file = join(dir, 'clients.sqlite');
-  const db = new SQLiteDatabase(file, 'drizzle');
+  const db = new SQLiteDatabase(file, 'migrations');
   const p = new ControlPlane(db, cedar);
   let first;
   for (let i = 0; i < 101; i++) {
@@ -144,7 +150,7 @@ void test('all enrolled clients survive database reopen without the previous 100
     first ??= enrollment;
   }
   db.close();
-  const reopened = new SQLiteDatabase(file, 'drizzle');
+  const reopened = new SQLiteDatabase(file, 'migrations');
   t.after(() => reopened.close());
   const service = new ControlPlane(reopened, cedar);
   const state = await service.state('alice');
@@ -219,7 +225,7 @@ void test('nullable expiration migration preserves existing clients, dates, hash
     '0000_known_shiva.sql',
     '0001_lyrical_texas_twister.sql',
   ]) {
-    old.raw.exec(await readFile(join('drizzle', name), 'utf8'));
+    old.raw.exec(await readFile(join('migrations', name), 'utf8'));
     old.raw.prepare('INSERT INTO _cleo_migrations VALUES (?)').run(name);
   }
   old.raw
@@ -239,7 +245,7 @@ void test('nullable expiration migration preserves existing clients, dates, hash
     );
   const before = old.raw.prepare('SELECT * FROM clients').get();
   old.close();
-  const updated = new SQLiteDatabase(file, 'drizzle');
+  const updated = new SQLiteDatabase(file, 'migrations');
   t.after(() => updated.close());
   assert.deepEqual(updated.raw.prepare('SELECT * FROM clients').get(), before);
   updated.raw

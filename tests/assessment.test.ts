@@ -53,7 +53,7 @@ const event = (id: string, assessed = payload()): EventRecord => ({
   policyVersion: 1,
 });
 async function client(t: import('node:test').TestContext) {
-  const p = new ControlPlane(new SQLiteDatabase(':memory:', 'drizzle'), cedar);
+  const p = new ControlPlane(new SQLiteDatabase(':memory:', 'migrations'), cedar);
   const enrollment = await p.enroll('alice', 'Alice', {
     name: 'Test agent',
     environmentIds: ['development'],

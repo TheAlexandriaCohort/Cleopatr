@@ -4,7 +4,9 @@
 
 Local authorization using the official Cedar engine, signed policy bundles, and non-blocking refresh after five minutes.
 
-Requires Node.js 22.13+. Install the downloaded package with `npm install -g ./cleopatr-cli-0.6.0.tgz`.
+Requires Node.js 22.13+. Install the downloaded package with `npm install -g ./cleopatr-cli-0.6.1.tgz`.
+
+CLI 0.6.1 requires a signed client identity on every imported or cached policy bundle, including Audit authorization. Upgrade and run `cleo sync`, or select your active client in Deploy's **Offline bundle** dropdown and import its new download. Old unbound bundles fail closed; older bundles already containing a signed client identity remain supported. New server snapshots require 0.6.1.
 
 CLI 0.5.0 follows effective Environment policy modes without any mode flag. `--audit` disables policy blocking for this invocation, including inherited Enforce policies, and records denied decisions as `ALLOWED_AUDIT`. It retains the Linux enclave: catalog boundaries, registered executables, protected credentials, network isolation, and supported protocol limits still apply. Since 0.5.1, opaque CONNECT tunnels are forwarded only when every effective policy is Audit, either from Environment modes or an explicit `--audit`. The client retains end-to-end TLS certificate validation. Only the destination and CONNECT attempt are observed; encrypted methods, paths, bodies, and inner protocol operations are not inspected or logged. These audit-only tunnels use the observed origin as resource identity when no catalog entry matches. Direct network bypass remains blocked. The Linux broker also preserves nonblocking socket flags; this avoids TLS stalls and truncated HTTP/2 responses. Filesystem/process grants widen within the catalog; CLI 0.6 adds per-operation signals, privilege attempts, metadata, listeners, DNS and database logging; static content/exec events remain incomplete. `--enforce` remains a compatible force-Enforce override. Conflicting mode flags are rejected. Mode is selected only by CLI flags, not `CLEO_MODE` from the caller.
 
@@ -17,7 +19,7 @@ Without an explicit CLI audit override, inherited policies remain effective and 
 1. In the web app, publish the relevant policies, choose environment policy modes, then create a client on Deploy.
 2. Download the enrollment JSON and keep it private.
 3. Run `cleo enroll --config cleopatr-enrollment.json`.
-4. Run `cleo sync` against a bearer-token-accessible control plane. For the owner-private hosted portal, download the signed bundle in the UI and use `cleo import --file cleopatr-bundle.json`.
+4. Run `cleo sync` against a bearer-token-accessible control plane. For offline operation, select this same client in Deploy's **Offline bundle** dropdown, download its signed bundle and use `cleo import --file cleopatr-bundle.json`.
 5. Enable the interactive zsh integration below, then run `cleo | your-agent`. For scripts or other shells, use `cleo -- your-agent`. Explicit adapters use `cleo authorize --request action.json`.
 
 The default `auto` backend selects the **managed Linux VM on macOS ARM64** (Docker Desktop required), or the installed native Linux supervisor on Linux. It refuses to start an uncontained process if that backend is unavailable. First use builds a cached runtime image; later launches boot a fresh VM. Install the CLI globally, outside your agent workspace.
@@ -72,7 +74,7 @@ In Custom mode, enforced policies are evaluated as their own Cedar set: at least
 
 Every authorized action—including initial process launch and MCP calls—uses the enrolled client name as its Cedar principal: `Cleopatr::AgentSession::"My agent"`. Names match exactly, including capitalization. A request's `principal` value is ignored by the CLI. Session IDs remain available for tracing and audit correlation.
 
-Online bundles carry the authenticated client ID and name under the policy signature. Offline enrollment files include `clientName`. After upgrading an older installation to 0.3.0, run `cleo sync` once to obtain its signed identity. If an older offline enrollment has no client name yet, authorization returns a configuration error until you sync or obtain a new enrollment file.
+Both online and offline bundles carry the client ID and name under the server's policy signature. The CLI verifies that signed ID against its enrollment and always uses the signed name. `clientName` in the enrollment file is informational; changing it cannot change the evaluated principal. Missing identity and another client's bundle are rejected before local authorization or enclave launch. Browser exports require a selected active client and use that client's saved Environment assignments, not caller-provided names or scope.
 
 ## Authorization request
 

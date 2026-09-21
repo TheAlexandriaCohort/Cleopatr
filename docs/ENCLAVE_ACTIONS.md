@@ -1,4 +1,4 @@
-# Enclave actions in CLI 0.6
+# Enclave actions in cleo v0.6
 
 The managed Linux VM on macOS ARM64 and the native Linux supervisor now assess these eight additional actions. Default execution follows the Environment's effective policy modes. `--audit` records denials as `ALLOWED_AUDIT` and permits supported operations; it retains namespace isolation, read-only mounts, credential masking and the prohibition on privilege elevation.
 

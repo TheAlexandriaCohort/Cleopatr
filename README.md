@@ -2,9 +2,9 @@
 
 <img src="public/brand/cleopatr-logo.png" alt="cleopatr — gold feather and wordmark" width="220" />
 
-A working Cedar policy control plane and installable CLI. Build policies with a visual rule builder or Cedar, assign them to nested environment groups, manage resources, simulate decisions, and publish signed policy bundles for local authorization.
+Cleopatr is designed to be an agent execution enclave - a flexible system for creating harnesses for agentic AI applications. The project consists of a Cedar policy control plane, running as a standard Next.js web application, and a CLI - `cleo` - that sandboxes agents within the boundaries defined by the control plane, enforcing policy decisions via various Linux system administration tools. Cleopatr enables you to build Cedar policies with a visual rule builder or native policy code, assign them to a nested Environment hierarchy, manage resources, simulate decisions, and publish signed policy bundles for local authorization.
 
-**Implementation status:** the CLI now defaults to a managed Linux VM on macOS ARM64 (Docker Desktop required), or the installed supervisor on native Linux, with cgroups, Landlock/seccomp restrictions, protected state, and HTTP/MCP HTTP mediation. The full production harness remains unfinished: arbitrary per-operation OS policies/audit, TLS inspection, database protocols and independent security validation are still required. See [the coverage matrix](docs/IMPLEMENTATION_STATUS.md) and [Linux harness guide](docs/LINUX_HARNESS.md).
+**Implementation status:** `cleo` defaults to a managed Linux VM on macOS ARM64 (Docker Desktop required), or the installed supervisor on native Linux, with cgroups, Landlock/seccomp restrictions, protected state, and HTTP/MCP HTTP mediation. The full production harness remains unfinished: arbitrary per-operation OS policies/audit, TLS inspection, database protocols and independent security validation are still WIP. See [Linux harness guide](docs/LINUX_HARNESS.md).
 
 ## Run the web application
 
@@ -15,19 +15,34 @@ npm ci
 npm run dev
 ```
 
-Open the Local URL printed by the development server. Local sign-in uses the bundled Sites development identity. On a new checkout, after opening the application once, initialize local persistence in another terminal:
+Open http://127.0.0.1:3000. The app runs on Node.js and stores data in `.local/cleopatr.sqlite` using Node's built-in SQLite driver. It creates the database and applies migrations automatically on first access. Local mode binds only to loopback and opens your workspace directly.
+
+Navigation stores the selected screen in the URL (for example, `/?page=deploy`). Refreshing or bookmarking the page retains that screen, and browser Back/Forward follows screen changes. Unsaved forms and table filters are not persisted.
+
+For a production build:
 
 ```sh
-npm run db:local
+npm run build
+npm start
 ```
 
-Refresh the app. Cloud deployments apply the checked-in D1 migrations automatically; `db:local` is only for the local development database. Starter policies and resources are **examples**. No live database is contacted.
+To host on another machine, set `CLEO_ADMIN_TOKEN` to a long random secret and `CLEO_HOST=0.0.0.0` in `.env` or the process environment. The browser then requires the administrator token; sessions expire after 12 hours. Put HTTPS in front of remote deployments and preserve the original Host header. Client bearer tokens continue to work without a browser session and cannot administer the workspace. `PORT` changes the web port. Persist `CLEO_SERVER_DATA` on a local disk/volume, outside any public/static directory; it defaults to `.local`. Run one application instance per data volume. Starter policies and resources are **examples**; no catalog database is contacted automatically.
+
+The application uses the existing native database in `CLEO_SERVER_DATA` without changing workspace IDs, client credentials or signing identity. Plain SQL migrations live in `migrations/`; their original filenames are retained to preserve the migration ledger. Initialization is part of normal startup; there is no separate database setup command. The retired development runtime and its one-time import utilities are no longer required.
+
+## Share configuration as JSON
+
+Use **Export JSON** and **Import JSON** in the sidebar. Exports include current drafts, published policy content, Environment hierarchy and modes, policy assignments, resources, and rule-builder settings. They exclude clients, enrollment tokens, signing keys, activity, and policy history. IDs are preserved so assignments and Cedar resource references remain valid. User-authored Cedar, descriptions, principal names and resource locators are configuration and are included; do not put passwords or tokens in those fields.
+
+Import first validates the file and previews additions and updates. Confirming merges by ID: matching objects are updated, new objects are added, and objects absent from the file are retained. Published content, resource changes and Environment assignments/modes take effect immediately. Draft content remains editable; importing a draft without a published version does not unpublish an existing policy. Changes to published content create a new local version with rollback history. Existing client access, signing identity and activity remain intact, and the signed policy sequence advances. A concurrent edit invalidates the preview and requires another review. Invalid files leave the workspace unchanged. The versioned transfer format accepts files below 32 MiB.
+
+These files are portable configuration, not full backups. Back up SQLite using a consistent SQLite backup/snapshot, or stop the app before copying its data directory (including any WAL files). Automatic pre-migration backups are stored in the data directory's `backups/` folder.
 
 ## Use the CLI with the local web application
 
 ```sh
 npm run build:cli
-npm install -g ./public/downloads/cleopatr-cli-0.6.0.tgz
+npm install -g ./public/downloads/cleopatr-cli-0.6.1.tgz
 ```
 
 1. In the app, configure policies, environments, and resources.
@@ -51,13 +66,13 @@ Pipe-style launch requires the opt-in interactive zsh hook above. It rewrites a 
 
 ### Private hosted portal
 
-The deployed Sites portal has an owner-only browser access gateway. Automated CLI access requires an application deployment that accepts client bearer tokens, such as the local app. For the private hosted portal, download a signed bundle on Deploy and use:
+The standalone application accepts enrolled client bearer tokens directly. For offline operation, select an active client in Deploy's **Offline bundle** dropdown, download its signed bundle, and use:
 
 ```sh
 cleo import --file ./cleopatr-bundle.json
 ```
 
-The CLI still attempts its scheduled background refresh; an unreachable or authentication-gated server leaves the verified local policies active. Do not expose the control plane publicly merely to bypass this platform gateway. A production deployment needs a supported machine-authentication ingress.
+The bundle includes the selected client's signed ID/name and published policies for its assigned Environments and descendants, including inherited policies. Import requires an enrollment for that same client. Revoked or expired clients cannot receive a new download. The CLI still attempts its scheduled background refresh; an unreachable server leaves the verified local policies active. Configuration JSON exports are different from signed CLI bundles and cannot be used with `cleo import`.
 
 ### Authorize an action
 
@@ -71,7 +86,9 @@ Use an enrolled environment matching the request (or override with `--env NAME_O
 
 The Cleo launcher authorizes only the initial executable. It preserves argv, inherited streams and TTY descriptors, forwards signals, and returns the child exit status. It does not constrain arbitrary descendants or create an OS enclave. `cleo mcp --` mediates supported stdio MCP requests. Legacy `cleo run --` remains compatible. See [CLI usage](cli/README.md).
 
-Existing installations should upgrade to CLI **0.6.0** and run `cleo sync` to receive the latest signed policies. This version follows Environment policy modes without a flag, supports an explicit `--audit` override, and forwards HTTPS CONNECT in entirely Audit sessions. Encrypted traffic remains opaque: events describe the tunnel destination, not inner HTTPS requests. Sessions containing Enforce policies still require the unfinished HTTPS inspection adapter. It retains audit upload retries, visible upload status, complete VM event transfer, and managed VM startup deadlines. Inheritance remains non-removable in the web application and in default CLI execution, including offline caches. New snapshots still require 0.4.2; clients running code older than 0.4.2 retain their older inheritance behavior until upgraded. New enrollment files also include the client name for offline use. Previously verified policy caches remain readable, but authorizing requires a known enrolled name. Run `npm run db:local` after updating the app; it makes a local database backup before applying schema migrations. Existing published content and pending drafts are migrated on first access.
+Existing installations should upgrade to CLI **0.6.1** and run `cleo sync`, or import a new client-specific offline bundle. Import and authorization now require a signed client identity matching the enrollment ID; editing `clientName` in `.cleo/config` cannot change the principal. Unbound older bundles are rejected even under `--audit`. Existing bundles that already contain a signed identity remain usable offline. The server advances the policy sequence once for this contract upgrade, and new snapshots require CLI 0.6.1; existing client credentials and published/draft content are preserved.
+
+Environment policy modes, the explicit `--audit` override, audit upload retries and managed VM startup deadlines are retained. Entirely Audit sessions can forward opaque HTTPS CONNECT tunnels; their encrypted methods, paths and bodies are not inspected. Sessions containing Enforce policies still require the unfinished HTTPS inspection adapter. See the CLI and Linux harness guides for the full coverage limits.
 
 ## Policy lifecycle and environments
 
@@ -93,9 +110,11 @@ The **Recent environment activity** table shows the latest 50 uploaded policy de
 
 ## Principal identity
 
-Cedar uses the enrolled Cleo client name as the entity ID: `Cleopatr::AgentSession::"My agent"`. Name matching is case-sensitive. Session IDs remain separate tracing metadata. The CLI takes the name from its signed, client-bound bundle or its enrollment file; action JSON cannot override it. Simulator principal input uses the same Cedar identity, allowing named-client policies to be tested before publishing. Client credentials and audit attribution still use the distinct enrollment ID.
+Cedar uses the enrolled Cleo client name as the entity ID: `Cleopatr::AgentSession::"My agent"`. Name matching is case-sensitive. Session IDs remain separate tracing metadata. The CLI takes the name exclusively from its verified, client-bound bundle; neither enrollment-file edits nor action JSON can override it. Simulator principal input uses the same Cedar identity, allowing named-client policies to be tested before publishing. Client credentials and audit attribution still use the distinct enrollment ID.
 
-Deploy retains every created client in the tenant's database and shows a searchable list with creation, check-in, expiration, and revocation status. New credentials do not expire unless an optional expiration is chosen; existing expiration dates are preserved. Credential plaintext is returned only at creation, while the server stores its hash. The policy editor's **Principal** selector lists the saved client names and an **Any client (wildcard)** option. Clients sharing a name share the same Cedar principal, even though their credentials and audit IDs are distinct.
+Deploy retains every created client in the tenant's database and shows a searchable list with creation, check-in, expiration, and revocation status. New client names must be unique within their workspace, including names of revoked or expired clients. Names are trimmed and case-sensitive, matching Cedar identity rules. Deploy flags duplicates immediately; the API returns HTTP 409, and SQLite insert/update guards prevent collisions even during simultaneous requests or direct SQL writes. The migration preserves legacy duplicate records and their credentials/history, but prevents further reuse of those names; those legacy clients continue sharing their original principal.
+
+New credentials do not expire unless an optional expiration is chosen; existing expiration dates are preserved. Credential plaintext is returned only at creation, while the server stores its hash. The policy editor's **Principal** selector lists the saved client names and an **Any client (wildcard)** option.
 
 New and existing workspaces receive one published **Default - &lt;action&gt;** permit for each of the 19 schema actions. These policies have unrestricted principal and resource scopes and no conditions. They start unassigned and can be selected in an Environment's **Manage Policies** dialog. The upgrade runs once, preserves existing rules and assignments, and does not recreate defaults that users later delete. Policies can also be saved or published while unassigned. Assigning all defaults permits every schema action at the Cedar layer, subject to applicable forbids; it does not remove kernel isolation, executable registration, or unsupported-adapter limits.
 
@@ -119,11 +138,12 @@ npm run lint
 npm test
 npm run build:cli
 npm run build
+npm run test:web
 ```
 
 The tests exercise Cedar semantics, inheritance, schema validation, signatures, tenant isolation, assignment scope, rollback and activation races, offline/304 caching, detached refresh, enforced-mode protection, process argv/exit propagation, and MCP denial before forwarding. `scripts/smoke-dev.mjs` verifies the running HTTP API. `scripts/integration.mjs` additionally creates an isolated Audit environment, published policy, and temporary client, exercises the packaged CLI and background refresh, uploads telemetry, then revokes the client and removes its temporary policy and environment; it records local audit events intentionally.
 
-The generated Shadcn component catalog is excluded from lint because its pre-existing source does not satisfy all scaffold lint rules. Application source, shared policy code, CLI, tests, and service code are checked.
+The retained Shadcn-derived UI primitives are excluded from lint because their upstream source does not satisfy all application lint rules. Unused scaffold components have been removed. Application source, shared policy code, CLI, tests, and service code are checked.
 
 ## Architecture
 
@@ -134,22 +154,26 @@ The infographic illustrates the target architecture; see the [coverage matrix](d
 - `app/`: responsive GUI and authenticated API routes.
 - `core/`: canonical actions/schema, inheritance, builder, official Cedar evaluator integration, Ed25519 signing/verification.
 - `control-plane/`: tenant-scoped service, persistence adapter, standalone loopback API.
-- `db/` and `drizzle/`: D1/SQLite schema and versioned migrations.
+- `migrations/`: plain SQL schema migrations, applied by the native SQLite adapter.
 - `cli/`: launcher, MCP mediation, cache/refresh, bounded audit spool.
 - `runtime/`: experimental privileged Linux supervisor, Cedar-to-Landlock capability compiler, HTTP/MCP HTTP adapters and real-kernel VM tests. See [Linux harness coverage](docs/LINUX_HARNESS.md).
 - `tests/`: executable authorization and integration regressions.
 - `public/downloads/`: installable CLI archive.
 
-The web service uses the official Cedar 4.12 WASM module in a Cloudflare Worker. The CLI uses the same upstream version and shared schema/evaluation code in Node. The local API adapter uses Node SQLite for direct service testing; the full GUI uses D1 through the Sites development runtime.
+The web service and CLI use the official Cedar 4.12 WASM module and shared schema/evaluation code in Node. The GUI API and optional standalone API share native SQLite persistence, with WAL, transactional updates, automatic schema migrations, and restrictive file permissions. No ORM, migration generator, or external database service is required. The web app runs on standard Next.js 16.3.5 with Tailwind PostCSS; Cedar remains an external Node package so its WASM can load normally.
 
 ## Configuration
 
-- `CLEO_SIGNING_JWK`: private Ed25519 JWK, configured as a hosted secret. Never commit this value. If absent in a local development instance, a per-workspace key is generated and stored in its development database. Production key rotation and KMS/HSM integration are not implemented.
+- `CLEO_SIGNING_JWK`: optional private Ed25519 JWK, supplied as a server secret. Never commit this value. If absent, a per-workspace key is generated and stored in SQLite. Preserve the same configured key when migrating an installation that used an external signing key. Production key rotation and KMS/HSM integration are not implemented.
 - `CLEO_AUTHORING_ENDPOINT` and optional `CLEO_AUTHORING_TOKEN`: optional authoring provider endpoint. It accepts `{requirement, schema, resources, policies, contract}` and returns `{cedar, assumptions, testCases, model}`. Generated Cedar is server-validated, saved as a candidate only, and requires human review before publishing. No LLM runs during authorization. No provider credentials are bundled; drafting is unavailable until configured.
 - `CLEO_HOME`: CLI config/cache/spool directory, default project-local `.cleo/`. Enrollment writes JSON to `.cleo/config`; set its `environment` field to an ID or unique name. Legacy `config.json` and `~/.config/cleopatr` enrollment remain readable.
-- `CLEO_PORT`, `CLEO_SERVER_DATA`, `CLEO_ADMIN_TOKEN`: optional standalone loopback API settings for `npm run api:local`. This separate test instance does not share the web app’s D1 database.
+- `CLEO_SERVER_DATA`: persistent data directory shared by the web app and `npm run api:local`, default `.local`.
+- `CLEO_ADMIN_TOKEN`: enables browser sign-in and authenticates administrative scripts via `x-cleo-admin-token`; required for a non-loopback web server. Browser mutation requests also require a matching Origin header.
+- `CLEO_HOST` and `PORT`: web bind address and port, default `127.0.0.1:3000`.
+- `CLEO_WORKSPACE_ID`: selects an existing workspace after migrating a database containing multiple workspaces. A fresh database uses `local-workspace`; a single migrated workspace keeps its original ID.
+- `CLEO_PORT`: port for the optional loopback-only `npm run api:local`, default `4318`. That endpoint requires `CLEO_ADMIN_TOKEN` for administration.
 
-The hosted workspace is isolated by authenticated user ID. Shared organizations, SSO group mapping, separate author/approver roles, two-person review, signed client enrollment flows, key rotation, and protected privileged local storage require the remaining enterprise work.
+The standalone GUI administers one selected workspace. Existing migrated tenants remain isolated in storage and in client authentication; the administrator workspace is selected explicitly if multiple tenants exist. Shared organizations, SSO group mapping, separate author/approver roles, two-person review, signed client enrollment flows, and key rotation require the remaining enterprise work.
 
 Upstream references: [Cedar source and WASM binding](https://github.com/cedar-policy/cedar/tree/main/cedar-wasm), [Cedar schema](https://docs.cedarpolicy.com/schema/json-schema.html), [authorization semantics](https://docs.cedarpolicy.com/auth/authorization.html).
 

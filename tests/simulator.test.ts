@@ -6,7 +6,10 @@ import { SQLiteDatabase } from '../control-plane/sqlite.ts';
 import type { ApiInput, Simulation } from '../core/api-types.ts';
 import { verifyBundle } from '../core/crypto.ts';
 async function setup() {
-  const p = new ControlPlane(new SQLiteDatabase(':memory:', 'drizzle'), cedar);
+  const p = new ControlPlane(
+    new SQLiteDatabase(':memory:', 'migrations'),
+    cedar,
+  );
   const mutation = async (input: ApiInput) =>
     p.mutation('alice', 'Alice', {
       revision: (await p.state('alice')).revision,
@@ -216,7 +219,7 @@ void test('bundle principal identity comes from authenticated enrollment and upg
   );
   assert.deepEqual(bundle.client, { id: client.clientId, name: 'My agent' });
   // Inheritance semantics require a client that cannot downgrade ancestor enforcement.
-  assert.equal(bundle.minimumClientVersion, '0.4.2');
+  assert.equal(bundle.minimumClientVersion, '0.6.1');
   assert.equal(bundle.sequence, initial.sequence + 1);
   assert.equal((await p.state('alice')).sequence, initial.sequence + 1);
 });

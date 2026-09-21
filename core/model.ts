@@ -1,7 +1,7 @@
-export const VERSION = '0.6.0';
+export const VERSION = '0.6.1';
 // Telemetry-only CLI updates must not change signed policy contents at the
 // same sequence. Raise this only when the bundle contract requires it.
-export const BUNDLE_MINIMUM_CLIENT_VERSION = '0.4.2';
+export const BUNDLE_MINIMUM_CLIENT_VERSION = '0.6.1';
 export const SCHEMA_VERSION = '3.0';
 export type Mode = 'AUDIT' | 'ENFORCE';
 export type EnvironmentMode = Mode | 'CUSTOM';

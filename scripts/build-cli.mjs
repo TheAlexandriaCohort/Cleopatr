@@ -27,7 +27,7 @@ await writeFile(
   JSON.stringify(
     {
       name: 'cleopatr-cli',
-      version: '0.6.0',
+      version: '0.6.1',
       description: 'Cleopatr local Cedar policy authorization CLI',
       type: 'module',
       bin: { cleo: 'cleo.js' },

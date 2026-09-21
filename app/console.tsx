@@ -1,6 +1,7 @@
 'use client';
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
+import { useSearchParams } from 'next/navigation';
 import {
   ShieldCheck,
   Layers3,
@@ -63,6 +64,7 @@ import {
   ancestors,
   policiesFor,
   type Policy,
+  type ResourceType,
 } from '@/core/model';
 import { api, download, Picker, Field } from './controls';
 import PolicyEditor from './policy-editor';
@@ -70,6 +72,7 @@ import EnvironmentPanel from './environment-panel';
 import ActivityPanel from './activity-panel';
 import Simulator from './simulator';
 import PolicyHistoryDialog from './policy-history';
+import ConfigurationTransfer from './configuration-transfer';
 import type {
   AppState as State,
   DraftItem,
@@ -156,8 +159,15 @@ function Stamp({ value }: { value: string }) {
     </time>
   );
 }
-export default function Console() {
-  const [page, setPage] = useState('Policies');
+export default function Console({
+  canSignOut = false,
+}: {
+  canSignOut?: boolean;
+}) {
+  const searchParams = useSearchParams();
+  const page =
+    nav.find(({ name }) => name.toLowerCase() === searchParams.get('page'))
+      ?.name ?? 'Policies';
   const [state, setState] = useState<State | null>(null);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
@@ -202,7 +212,11 @@ export default function Console() {
     }
   }
   function go(value: string) {
-    setPage(value);
+    if (value !== page) {
+      const url = new URL(window.location.href);
+      url.searchParams.set('page', value.toLowerCase());
+      window.history.pushState(null, '', url);
+    }
     setQuery('');
     setFilter('all');
     setNotice('');
@@ -269,6 +283,12 @@ export default function Console() {
           ))}
         </SidebarContent>
         <SidebarFooter>
+          {state && (
+            <ConfigurationTransfer
+              revision={state.revision}
+              onImported={refresh}
+            />
+          )}
           <div className="sidebar-note">
             <CircleDot size={15} />
             <span>Local decisions. Central control.</span>
@@ -279,6 +299,21 @@ export default function Console() {
               Your workspace<small>Private access</small>
             </div>
           </div>
+          {canSignOut && (
+            <Button
+              variant="ghost"
+              onClick={async () => {
+                const response = await fetch('/api/session', {
+                  method: 'POST',
+                  headers: { 'content-type': 'application/json' },
+                  body: JSON.stringify({ logout: true }),
+                });
+                if (response.ok) window.location.assign('/login');
+              }}
+            >
+              Sign out
+            </Button>
+          )}
         </SidebarFooter>
       </Sidebar>
       <div className="main-shell">
@@ -808,6 +843,36 @@ export default function Console() {
     </SidebarProvider>
   );
 }
+const resourceLocatorHints: Record<
+  ResourceType,
+  { placeholder: string; hint: string }
+> = {
+  Database: {
+    placeholder: 'postgresql://db.internal/customers',
+    hint: 'A PostgreSQL or MySQL connection URI. Do not include credentials.',
+  },
+  File: {
+    placeholder: '/workspace/data',
+    hint: 'An absolute directory path accessible to the agent.',
+  },
+  Endpoint: {
+    placeholder: 'https://api.example.com/v1',
+    hint: 'An HTTP(S) URL with an optional path. Do not include credentials or query parameters.',
+  },
+  MCPTool: {
+    placeholder: 'https://mcp.example.com/mcp#search',
+    hint: 'An MCP HTTP(S) transport URL; append #tool-name to identify a specific tool. Do not include credentials.',
+  },
+  Process: {
+    placeholder: '/usr/bin/node',
+    hint: 'An absolute path to the executable, interpreter, or tool.',
+  },
+  Network: {
+    placeholder: 'tcp://api.example.com:443',
+    hint: 'A TCP/UDP host and port, HTTP(S) origin, or DNS locator such as dns://example.com.',
+  },
+};
+
 function ObjectEditor({
   value,
   state,
@@ -832,6 +897,9 @@ function ObjectEditor({
   });
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const locatorHint =
+    resourceLocatorHints[item.type as ResourceType] ??
+    resourceLocatorHints.Database;
   const patch = (v: Partial<typeof item>) => setItem({ ...item, ...v });
   async function save() {
     setBusy(true);
@@ -924,14 +992,11 @@ function ObjectEditor({
                   }))}
                 />
               </Field>
-              <Field
-                label="Locator"
-                hint="A path, endpoint, database URI, or MCP server/tool. Do not include passwords."
-              >
+              <Field label="Locator" hint={locatorHint.hint}>
                 <Input
                   value={item.locator}
                   onChange={(e) => patch({ locator: e.target.value })}
-                  placeholder="postgresql://db.internal/customers"
+                  placeholder={locatorHint.placeholder}
                 />
               </Field>
             </>
@@ -973,6 +1038,8 @@ function Connect({
   const [expiration, setExpiration] = useState('never');
   const [expiresAt, setExpiresAt] = useState('');
   const [clientSearch, setClientSearch] = useState('');
+  const [bundleClientId, setBundleClientId] = useState('');
+  const [downloadingBundle, setDownloadingBundle] = useState(false);
   const [clientStatusTime, setClientStatusTime] = useState(Date.now);
   useEffect(() => {
     const timer = setInterval(() => setClientStatusTime(Date.now()), 30000);
@@ -983,7 +1050,19 @@ function Connect({
       .toLowerCase()
       .includes(clientSearch.toLowerCase()),
   );
+  const nameExists = state.clients.some(
+    (client) => client.name === name.trim(),
+  );
+  const bundleClients = state.clients.filter(
+    (client) =>
+      !client.revoked &&
+      (!client.expires_at || Date.parse(client.expires_at) > clientStatusTime),
+  );
+  const bundleClient = bundleClients.find(
+    (client) => client.id === bundleClientId,
+  );
   async function enroll() {
+    if (nameExists) return;
     setBusy(true);
     setError('');
     try {
@@ -1016,14 +1095,14 @@ function Connect({
           </p>
           <a
             className="download-link"
-            href="/downloads/cleopatr-cli-0.6.0.tgz"
+            href="/downloads/cleopatr-cli-0.6.1.tgz"
             download
           >
             <ArrowDownToLine size={17} />
             Download Cleopatr CLI
           </a>
           <pre className="install-command">
-            npm install -g ./cleopatr-cli-0.6.0.tgz
+            npm install -g ./cleopatr-cli-0.6.1.tgz
           </pre>
           <div className="capability-note">
             <ShieldCheck size={18} />
@@ -1031,8 +1110,8 @@ function Connect({
               Protected launch now uses a Linux VM on Apple Silicon or a
               configured native Linux supervisor. Filesystem, process and
               network isolation remains active. HTTPS tunnels pass through in
-              audit-only sessions. Full HTTPS inspection and
-              database protocol adapters remain unavailable.
+              audit-only sessions. Full HTTPS inspection and database protocol
+              adapters remain unavailable.
             </p>
           </div>
         </div>
@@ -1044,9 +1123,27 @@ function Connect({
             descendants.
           </p>
           <div className="form-stack spaced">
-            <Field label="Client name">
-              <Input value={name} onChange={(e) => setName(e.target.value)} />
+            <Field
+              label="Client name"
+              hint="Unique within this workspace. Names are case-sensitive."
+            >
+              <Input
+                value={name}
+                maxLength={200}
+                aria-invalid={nameExists}
+                aria-describedby={nameExists ? 'client-name-error' : undefined}
+                onChange={(e) => {
+                  setName(e.target.value);
+                  setError('');
+                }}
+              />
             </Field>
+            {nameExists && (
+              <p className="error-box" id="client-name-error" role="alert">
+                Client name already exists in this workspace. Choose a different
+                name.
+              </p>
+            )}
             <Field label="Environment or group">
               <Picker
                 label="Client environment"
@@ -1082,6 +1179,7 @@ function Connect({
               onClick={enroll}
               disabled={
                 busy ||
+                nameExists ||
                 !environment ||
                 !name.trim() ||
                 (expiration === 'scheduled' && !expiresAt)
@@ -1135,24 +1233,56 @@ function Connect({
         Node/curl workloads; other tools need a provisioned Linux runtime.
       </div>
       <div className="notice neutral spaced">
-        Private Sites requires browser authentication at its gateway. CLI
-        network sync works with the local control plane or your own deployment
-        that accepts client bearer tokens. For this private portal, download a
-        signed bundle below and import it to operate offline.
+        Enrolled clients connect directly to this server using their own
+        credentials. Keep the server URL reachable from your agents. You can
+        also download a signed bundle below for offline use.
       </div>
       <div className="section-bar spaced">
         <h2>Offline bundle</h2>
+      </div>
+      <div className="surface detail-card">
+        <Field
+          label="Client"
+          hint="Includes published policies for this client’s assigned Environments and their inherited policies."
+        >
+          <Picker
+            label="Offline bundle client"
+            value={bundleClient?.id ?? ''}
+            onChange={setBundleClientId}
+            options={[
+              { value: '', label: 'Select a client' },
+              ...bundleClients.map((client) => ({
+                value: client.id,
+                label:
+                  bundleClients.filter((other) => other.name === client.name)
+                    .length > 1
+                    ? `${client.name} (${client.id})`
+                    : client.name,
+              })),
+            ]}
+          />
+        </Field>
+        {!bundleClients.length && (
+          <p>Create an active client to download an offline bundle.</p>
+        )}
         <Button
+          className="spaced"
           variant="outline"
-          disabled={!environment}
-          onClick={() =>
-            void task(async () => {
-              const bundle = await api(
-                'bundles?environment=' + encodeURIComponent(environment),
-              );
-              download('cleopatr-bundle.json', bundle);
-            }, 'Signed bundle downloaded. Import it with cleo import --file cleopatr-bundle.json.')
-          }
+          disabled={!bundleClient || downloadingBundle}
+          onClick={async () => {
+            if (!bundleClient) return;
+            setDownloadingBundle(true);
+            try {
+              await task(async () => {
+                const bundle = await api(
+                  'bundles?clientId=' + encodeURIComponent(bundleClient.id),
+                );
+                download('cleopatr-bundle.json', bundle);
+              }, `Signed bundle for ${bundleClient.name} downloaded. Import it with cleo import --file cleopatr-bundle.json.`);
+            } finally {
+              setDownloadingBundle(false);
+            }
+          }}
         >
           <ArrowDownToLine size={16} />
           Download signed bundle

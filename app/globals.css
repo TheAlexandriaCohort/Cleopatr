@@ -1,6 +1,6 @@
 @import 'tailwindcss';
 @import 'tw-animate-css';
-@import 'shadcn/tailwind.css';
+@import './ui-variants.css';
 
 @custom-variant dark (&:is(.dark *));
 
@@ -1887,4 +1887,55 @@ a:focus-visible {
   .decision-payload-heading {
     flex-wrap: wrap;
   }
+}
+/* Workspace configuration transfer and standalone sign-in. */
+.configuration-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+.configuration-actions button {
+  font-size: 12px;
+  padding-inline: 8px;
+}
+.configuration-dialog {
+  max-width: 600px;
+  max-height: 90vh;
+  overflow-y: auto;
+}
+.configuration-dialog p {
+  font-size: 14px;
+  line-height: 1.6;
+}
+.import-summary {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 14px;
+}
+.import-summary th,
+.import-summary td {
+  padding: 8px;
+  text-align: left;
+  border-bottom: 1px solid #e9e4da;
+}
+.import-summary tbody th {
+  text-transform: capitalize;
+}
+.login-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+.login-card {
+  width: min(100%, 440px);
+  display: grid;
+  gap: 24px;
+  padding: 36px;
+  background: white;
+  border: 1px solid #e9e4da;
+  border-radius: 16px;
+}
+.login-card h1 {
+  font-size: 28px;
 }
