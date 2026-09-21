@@ -1,0 +1,52 @@
+Mode: built-in imagegen edits, followed by direct placement of the canonical transparent PNG assets.
+Final output: docs/assets/cleopatr-architecture.png
+Reusable background: docs/assets/cleopatr-architecture-layout.png
+Exact logo placement: node scripts/brand-infographic.mjs
+Canonical logo files: public/brand/cleopatr-logo.png, public/brand/cleopatr-feather.png, public/brand/cleo-logo.png.
+All three canonical files were verified byte-identical to the latest supplied Downloads PNGs.
+The generated logo renderings were rejected because they changed the artwork. The final infographic uses the actual PNG assets with uniform scaling and transparent-padding trimming only.
+
+Initial edit prompt:
+Use case: compositing.
+Asset type: an existing Cleopatr high-level architecture infographic, landscape 16:9.
+Input images in order:
+1. EDIT TARGET: existing gold-themed Cleopatr architecture infographic.
+2. EXACT INSERT: latest full Cleopatr logo, a gold feather above the lowercase "cleopatr" wordmark, transparent PNG.
+3. EXACT INSERT: latest shorthand gold feather icon, transparent PNG.
+4. EXACT INSERT: latest lowercase gold "cleo" wordmark, transparent PNG.
+
+Primary request: Correct the infographic's branding by replacing its approximated/generated logos with the actual supplied logo artwork. Treat reference images 2, 3 and 4 as finished graphic assets to composite, NOT as inspiration to redraw. The logos must match the references faithfully: same letter silhouettes, the distinctive tall tapered "l", the sparse polygon mesh and curved lower feather vanes, gold shading, fine outlines and base. Do not invent extra mesh details, change font, simplify the feather, change proportions, stretch, recolor, or outline the lettering. Preserve all visible logo content and original aspect ratios, using their transparent backgrounds with no black rectangles.
+
+Placement:
+- Replace the entire existing upper-left full brand mark with the full supplied feather-plus-cleopatr logo from image 2. Its feather-to-wordmark size relationship and spacing must be the same as image 2, NOT the squashed proportions in the target. Scale the entire logo uniformly to fit the upper-left brand area, around 290 pixels wide by 282 pixels high at a 1672x941 canvas. Move the tagline "Central policy. Local control." down slightly if necessary so the full correctly proportioned logo has clear space. Keep it within the upper-left area above the agent enclosure. Never rebuild the logo out of separate text.
+- Replace the feather at the far-left edge of the agent enclosure heading with the actual shorthand feather from image 3, scaled uniformly to a compact icon.
+- Replace the feather in the simulated web application's top bar with the actual shorthand feather from image 3.
+- Replace the gold "cleo" word at the beginning of the agent execution boundary heading with the complete supplied wordmark from image 4. Keep the following words "– agent execution boundary" as ordinary dark-gold text. Preserve the source wordmark's letterforms and gold texture.
+
+One small text correction: the terminal sample inside Agentic program must read exactly "$ cleo | agent", replacing "$ cleo run -- agent".
+
+Invariants: Keep all other existing architecture content, wording, components, connector routes, operational rows, statuses, labels, legend, TARGET ARCHITECTURE badge and conceptual-architecture footer. Keep the landscape composition and dimensions. Preserve the warm gold gradient enclosure and borders, white/pale cool background, navy body type, dark terminal, green allowed paths, and red blocked barriers. Maintain four lanes: GET /catalog -> HTTP adapter -> ALLOW -> Approved API; DELETE FROM customers -> Database adapter -> BLOCKED before Customer database; rm -rf /workspace -> Filesystem adapter -> BLOCKED before Protected files; tools/call: search -> MCP adapter -> ALLOW -> MCP tool server. Keep policy distribution dashed gold and action arrows green. No arrows cross the blocked red barriers. Keep signed policy bundles, refresh after 5 min, offline policy cache, and centrally managed policy vault. No architecture redesign, no extra claims or elements.
+Output: crisp, readable finished infographic with fully OPAQUE light background across the entire rectangular canvas, including margins and whitespace. Do not output transparent holes, black patches, checkerboards or a transparent canvas.
+
+Refinement prompt:
+Precise branding correction / image compositing. The FIRST THREE inputs are finished brand artwork that MUST be preserved; the FOURTH input is the infographic to edit.
+Image 1: authoritative full logo. Image 2: authoritative feather icon. Image 3: authoritative cleo logo. Image 4: infographic EDIT TARGET.
+
+The target's current logos are WRONG and must be removed entirely. In particular the target invents a dense, thin triangular lattice in the feathers and uses rounded heavy lettering. This must be replaced with the actual reference artwork. Do not interpret or redraw the logos in the style of the infographic. Insert the supplied artwork itself, as though pasting transparent PNGs into a layout. Its slightly rasterized texture and fine pale-gold edges are intentional, not defects to smooth or restyle.
+
+1. Remove the whole upper-left logo in image 4 (feather and wordmark, but NOT the tagline below). Paste the full logo from image 1 in that cleared area. Preserve its original proportions: one thin, sparse, irregular polygon-mesh feather with only the exact network of nodes and lines in image 1, curved lower vanes, straight vertical gold shaft, two-tier flat base, and the exact elegant lowercase gold "cleopatr" wordmark beneath. Full logo aspect ratio is 509:494, not a wide horizontal logo. Fit it above the tagline at approximately x=95..405 and y=0..301 on this 1672x941 canvas. The source logo's tall feather is around 2.2 times the lowercase letters' visible height; its wordmark's p descender is long and its l is a tall thin tapered blade. Preserve those silhouettes. Use the entire source logo uniformly scaled, with no separated or retypeset elements. Transparent parts reveal the infographic's light background, never black.
+2. Paste the actual feather from image 2 in place of BOTH tiny existing feathers (one at the left of the enclosure heading and one in the mock browser title bar). Keep the same sparse polygon shapes, especially the large irregular gold polygons with rounded gold joints. The target's dozens of little repeated triangles are forbidden.
+3. Paste the exact "cleo" image 3 into the enclosure heading. In the original, the l is tall and curves into a flared foot; preserve its shape. Keep the complete lowercase c l e o and metallic gradient texture. Do not typeset or synthesize it.
+
+Keep every other pixel, element, text label, arrow, panel, status badge, spacing and architecture of image 4 unchanged. Keep the shell sample "$ cleo | agent". Do not regenerate the infographic layout or rewrite any words. The only changes are replacement of the four incorrect logo placements with the three provided finished PNG assets. Fully opaque finished light background, no black rectangles or transparent holes.
+
+Final imagegen background-plate prompt:
+Use case: precise-object-edit.
+The input is an infographic whose logo artwork will be placed separately from the original brand assets. Make a clean background plate by REMOVING ONLY FOUR GOLD LOGO PLACEMENTS:
+1. Remove the whole upper-left logo: gold feather plus gold "cleopatr" lettering. This occupies roughly x=110..400, y=12..260 on the 1672x941 canvas. Fill seamlessly with the surrounding pale cool off-white background. KEEP the dark navy tagline "Central policy. Local control." below it absolutely unchanged.
+2. Remove the small gold feather at the far left of the agent execution enclosure header (roughly x=48..90, y=374..451), filling seamlessly with the existing pale warm ivory panel background.
+3. Remove ONLY the gold "cleo" wordmark next to that feather (roughly x=95..214, y=378..428), filling with the same warm ivory panel background. KEEP the following dark-gold dash and text "agent execution boundary", and KEEP "Local control. Enforced execution." below. Do not move these.
+4. Remove the very tiny gold feather in the simulated web-app title bar (roughly x=919..939, y=51..84), filling it with the matching gold header background. KEEP "Cleopatr web application" unchanged.
+
+These regions must be EMPTY background, without any replacement logo, lettering, symbol, placeholder, artifact, or outline. Leave all other parts of the infographic unchanged. Preserve exact canvas dimensions, all wording, the pipe command "$ cleo | agent", panels, colored arrows, statuses, legend, spacing, TARGET ARCHITECTURE badge and conceptual footer. No redesign or rearrangement. The output must be fully opaque with a light background, no transparent areas, holes, black rectangles or checkerboards.
+

@@ -1,0 +1,26 @@
+[Unit]
+Description=Cleopatr Linux security supervisor (experimental)
+After=network.target
+ConditionPathExists=/etc/cleopatr/supervisor.json
+
+[Service]
+Type=simple
+ExecStart=/usr/lib/cleopatr/cleo-supervisor serve
+Restart=on-failure
+KillMode=control-group
+Delegate=cpu memory pids
+RuntimeDirectory=cleopatr
+RuntimeDirectoryMode=0755
+StateDirectory=cleopatr
+StateDirectoryMode=0700
+UMask=0077
+LimitNOFILE=8192
+TasksMax=1024
+MemoryMax=2G
+MemorySwapMax=0
+OOMPolicy=kill
+# Namespace creation, credential dropping, cgroups and seccomp brokering require root.
+# The untrusted workload drops credentials/capabilities before exec, inside its own namespaces.
+
+[Install]
+WantedBy=multi-user.target

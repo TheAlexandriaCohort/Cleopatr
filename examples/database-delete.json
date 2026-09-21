@@ -1,0 +1,7 @@
+{
+  "environmentId": "customer-platform",
+  "sessionId": "agt_example",
+  "action": "database.query",
+  "resource": {"type": "Database", "id": "customer-db"},
+  "context": {"operation": "DELETE", "tables": ["customers"], "confidence": "semantic"}
+}

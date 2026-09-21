@@ -1,0 +1,13 @@
+Mode: built-in imagegen, precise text replacement.
+Output: docs/assets/cleopatr-architecture.png
+The three text regions were applied to the approved source image, preserving the original text palette. A pixel comparison verified zero changed pixels outside those three regions. The reusable layout was updated with the same text regions.
+
+Final prompt:
+Use case: text-localization / precise text replacement.
+Edit the attached infographic. Change ONLY these THREE text strings:
+1. The top-left tagline beneath the full Cleopatr logo currently says "Central policy. Local control." Replace it with exactly "Rules Over All" (no period). Preserve the same navy typeface, font size, weight, baseline and centered alignment beneath the logo. Keep the logo absolutely unchanged.
+2. The smaller blue-gray subtitle beneath the cleo enclosure heading currently says "Local control. Enforced execution." Replace it with exactly "Global rules. Local enforcement." Preserve its exact existing typeface, font size, weight, blue-gray color, baseline and left alignment.
+3. In the brown-gold enclosure heading after the gold cleo wordmark and dash, replace "agent execution boundary" with exactly "agent execution enclave". Preserve the same brown-gold typeface, font size, weight, baseline and left alignment. Keep the preceding dash, cleo logo, and feather absolutely unchanged.
+
+The source image is a finished approved design. NOTHING ELSE may change: no color scheme changes, no restyling, no redesigned logos, no geometry changes, no layout changes, no changes to any other text, arrows, panels, icons, gradients, borders, backgrounds, statuses, line widths, or spacing. Keep the exact 1672x941 canvas. Do not redraw the logos. All unaffected pixels should remain unchanged. Maintain a fully opaque canvas. Only replace the specified wording in place.
+

@@ -1,0 +1,11 @@
+{
+  "allowedUids": [1000],
+  "worker": "/usr/lib/cleopatr/worker.js",
+  "node": "/usr/bin/node",
+  "state": "/var/lib/cleopatr",
+  "rootfs": "/var/lib/cleopatr-rootfs",
+  "workspace": "/srv/cleopatr-workspace",
+  "cgroupRoot": "/sys/fs/cgroup/system.slice/cleopatr-supervisor.service",
+  "memoryMax": 2147483648,
+  "pidsMax": 256
+}
